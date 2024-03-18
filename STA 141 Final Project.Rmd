@@ -1,0 +1,643 @@
+---
+title: "<center>STA 141A Final Project</center> "
+date: "<center>Venkataditya Nallapaneni</center>"
+output: html_document
+---
+
+---
+
+```{r echo=TRUE, eval=TRUE}
+
+session=list()
+for(i in 1:18){
+  session[[i]]=readRDS(paste('./Data/session',i,'.rds',sep=''))
+}
+```
+
+### **Abstract.**
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In 2019, an experiment was conducted on mice to see if they could determine the difference in visual stimuli of a screen that was presented to them and choose the correct feedback via a wheel. The mice were rewarded if they were able to pinpoint the right stimuli and were given a consequence otherwise. In addition to this, the neurons inside the brain of the mouse were recorded for the purpose of finding out what parts of the brain respond and take action to what is seen on the screen. A total of 10 mice were placed under these experiments over 39 sessions conducting hundreds of trials to determine if a mice was able to improve their overall success rate over a steady period of time. With the concluded information that is available and recorded today, can we analyze trends and make correlations within the sets of data to create a prediction model which can determine the feedback based on the neuron activity within the mouse brain? This report will answer that question and provided a detail explanation as to how these patterns are being recognized and the steps that need to be taken in order to present an accurate prediction model. 
+
+### **Introduction**
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Testing
+In the study conducted by Steinmetz et al. (2019) experiments were performed on a total of 10 mice over 39 sessions. In this experiment, mice were surrounded by 3 computer screens showing visual stimuli and were presented with a wheel they could turn clockwise or counterclockwise with their limbs. They were rewarded with "water rewards" when they chose the right answer according to the visual stimuli they see on the screen. The heads of the mice were in a fixed position to record their neurons and also control what visual stimuli of what they see. 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;To take an example into consideration, if the mouse saw a visual stimuli on the left screen, they would turn the wheel clockwise into the middle of the screen. If they saw the stimuli on the right screen, they would turn the wheel counterclockwise in order to bring it to the middle. In other words, the purpose of the experiment is to bring the stimulus to the center of the screen. In some cases, 2 stimuli were presented(one on left, one on right) referred to as a "visual contrast discrimination task" in which the mice have to determine which stimuli has a higher contrast(0, 0.25, 0.5, 1) and then bring it to the center. If no stimulus was shown in one of the trials, as long as the mouse held onto the wheel for 1.5 seconds, they were rewarded. If the 2 visual stimuli presented were the same, one of the screens was randomly chosen as the answer(50% chance to get right). Depending on these scenarios presented, the results would output +1 or -1 for each trial.
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This was just the base as over time the mice were getting better at adapting to the changes in contrast and making the right decisions. Howevever, With this in mind, the experimenters measured the approximately 30000 neurons across 42 brain regions in the 10 mice in order to determine what areas respond to these actions. For example, a neuron within the Primary Visual Cortex of the mice brain yielded data that was transformed into a graph.
+
+Here is an image of the Visual Cortex:
+
+<center>
+    <img src="Visual_Cortex.png" alt="Visual Cortex Image" style="width:40%;">
+</center>
+
+ **Notice: Each dot represents a spike emitted by the neuron. It can be inferred from this graph that as the contrast fades from a higher to a lower one, the neurons tend to become less receptive. When the contrast is zero, there are virtually no responsive neurons within the Visual Cortex.**
+ 
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Although this is merely an example, a question could be asked: If we were given the results of different trials/sessions, could we build a prediction model that would yield results based on the actions/responses of neurons in different parts of the brain regions? This would be the major question and this report will provide a detailed explanation to this. 
+
+
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;**First, we need to identify variables. These will be present in each trial:**
+
+- **feedback_type**: <span style="font-size:larger; font-style:italic;">type of the feedback, 1 for success and -1 for failure</span>
+- **contrast_left**: <span style="font-size:larger; font-style:italic;">contrast of the left stimulus</span>
+- **contrast_right**: <span style="font-size:larger; font-style:italic;">contrast of the right stimulus</span>
+- **time**: <span style="font-size:larger; font-style:italic;">centers of the time bins for spks</span>
+- **spks**: <span style="font-size:larger; font-style:italic;">numbers of spikes of neurons in the visual cortex in time bins defined in time</span>
+- **brain_area**: <span style="font-size:larger; font-style:italic;">area of the brain where each neuron lives</span>
+
+
+**These 5 variables make up the core of the trials within the sessions**
+
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Additionally, in this report, only 18 sessions and data from 4 different mice were used: Cori, Frossman, Hence, and Lederberg.
+   
+   
+### **Exploratory Analysis**
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;In this part of the report, we will explore the features of the data sets in order to build our prediction model. It will start out simply with summaries of the results of different trials and move forward into certain trends that we can identify to describe the data structures across sessions (e.g., number of neurons, number of trials, stimuli conditions, feedback types).For explanation terms, most of this section will cover data from session 18. 
+
+```{r, echo=FALSE}
+names(session[[18]])
+
+```
+
+Using names(session[[18]]), we can see the factors and variables that are present within session 18. 
+
+```{r, echo=FALSE}
+dim(session[[1]]$spks[[1]]) 
+
+```
+
+By writing out dim(session[[1]]$spks[[1]]), we can see that in this session, there are a total of 734 neurons from 40 different areas of the brain creating a matrix with each entry being the number of spikes of one neuron(row) in each time bin(column).
+
+
+```{r, echo=FALSE}
+summary(session[[18]])
+
+```
+Using the summary(session[[18]]), we can see all the variables on the left hand side that are summarized into 3 categories: Length, class, and mode. The variables have already been defined, but length refers to the number of items present within the vector, class in this case is none but is used for objects, and mode is the how the output of the data appears.
+
+
+```{r, echo=FALSE}
+# feedback_type
+n.session=length(session)
+
+n_success = 0
+n_trial = 0
+for(i in 1:n.session){
+    tmp = session[[i]];
+    n_trial = n_trial + length(tmp$feedback_type);
+    n_success = n_success + sum(tmp$feedback_type == 1);
+}
+n_success/n_trial
+
+```
+By running a for loop through all the values in session 1 to 18, we can keep track of the number of successes over the number of trials. If you happen to divide the number of successes by the number of trials, the output would be 0.7100964. This means that over 70% of the trials conducted on the mice are a success. 
+
+
+```{r, echo=FALSE}
+# brain area
+area = c()
+for(i in 1:n.session){
+    tmp = session[[i]];
+    area = c(area, unique(tmp$brain_area))
+}
+
+area = unique(area)
+length(area)
+```
+The number above shows us the number of brain regions in which these neurons are being recorded. This will help us in the future to analyze trends and apply algorithms to determine what the feedback type could be. In this case, there are 62 levels in the brain area. 
+
+```{r, echo=FALSE}
+session[[1]]$spks[[1]][6,3] 
+session[[1]]$brain_area[6]
+```
+There are 2 rows of printed information above. The first row is with session[[1]]spks[[1]][6,3] which yields 1. The second row is from running session[[1]]$brain_area[6] which yields "ACA". This specifically means that in session 1 trail 1, the 6th neuron (from area ACA) has a spike at time bin 3. 
+ 
+```{r, echo=FALSE}
+
+library(dplyr)
+library(magrittr)
+library(tibble)
+get_trail_data <- function(session_id, trail_id){
+  spikes <- session[[session_id]]$spks[[trail_id]]
+  if (any(is.na(spikes))){
+    disp("value missing")
+  }
+
+  #trail_tibble <- as_tibble(spikes) %>% set_names(binename) %>%  add_column("brain_area" = session[[session_id]]$brain_area ) %>% group_by(brain_area) %>% summarize( "sum_spikes" =across(everything(),sum),.groups = "drop") 
+  trail_tibble <- tibble("neuron_spike" = rowSums(spikes))  %>%  add_column("brain_area" = session[[session_id]]$brain_area ) %>% group_by(brain_area) %>% summarize( region_sum_spike = sum(neuron_spike), region_count = n(),region_mean_spike = mean(neuron_spike)) 
+  trail_tibble  = trail_tibble%>% add_column("trail_id" = trail_id) %>% add_column("contrast_left"= session[[session_id]]$contrast_left[trail_id]) %>% add_column("contrast_right"= session[[session_id]]$contrast_right[trail_id]) %>% add_column("feedback_type"= session[[session_id]]$feedback_type[trail_id])
+  trail_tibble
+}
+trail_tibble_1_2 <- get_trail_data(1,2)
+trail_tibble_1_2
+```
+In the table show above, the brain_area denotes the area of the brain in which these sets of data are coming from. The region_sum_spike represents the total number of spikes per region of the brain. The region_count displays the number of regions in which these neurons are activated.The region_mean_spike records the average of spike rate over each region. The trail_id represents the trail id, the contrast_left and contrast_right shows the contrast levels in this brain region. Finally, the feedback_type represents the outcome of the trial in that specific brain region. We denote spike rate per neuron as the sum of spikes over the 40 time bins. 
+
+```{r,echo=FALSE}
+
+get_session_data <- function(session_id){
+  n_trail <- length(session[[session_id]]$spks)
+  trail_list <- list()
+  for (trail_id in 1:n_trail){
+    trail_tibble <- get_trail_data(session_id,trail_id)
+    trail_list[[trail_id]] <- trail_tibble
+  }
+  session_tibble <- do.call(rbind, trail_list)
+  session_tibble <- session_tibble %>% add_column("mouse_name" = session[[session_id]]$mouse_name) %>% add_column("date_exp" = session[[session_id]]$date_exp) %>% add_column("session_id" = session_id) 
+  session_tibble
+}
+
+```
+
+```{r, echo=FALSE, eval=FALSE}
+library(dplyr)
+library(magrittr)
+library(tibble)
+  session_1 <- get_session_data(1)
+head(session_1)
+```
+<center>
+    <img src="Session_1.png" alt="Sessions 1 Data" style="width:50%;">
+</center>
+
+  The table above gives us the same formatted table, but all the data is now from session 1. This gives a better format and understanding of the data.
+
+```{r,echo=FALSE}
+session_list = list()
+for (session_id in 1: 18){
+  session_list[[session_id]] <- get_session_data(session_id)
+}
+full_tibble <- do.call(rbind, session_list)
+full_tibble$success <- full_tibble$feedback_type == 1
+full_tibble$success <- as.numeric(full_tibble$success)
+full_tibble$contrast_diff <- abs(full_tibble$contrast_left-full_tibble$contrast_right)
+
+```
+
+  
+
+```{r, echo=FALSE}
+binename <- paste0("bin", as.character(1:40))
+
+get_trail_functional_data <- function(session_id, trail_id){
+  spikes <- session[[session_id]]$spks[[trail_id]]
+  if (any(is.na(spikes))){
+    disp("value missing")
+  }
+
+  trail_bin_average <- matrix(colMeans(spikes), nrow = 1)
+  colnames(trail_bin_average) <- binename
+  trail_tibble  = as_tibble(trail_bin_average)%>% add_column("trail_id" = trail_id) %>% add_column("contrast_left"= session[[session_id]]$contrast_left[trail_id]) %>% add_column("contrast_right"= session[[session_id]]$contrast_right[trail_id]) %>% add_column("feedback_type"= session[[session_id]]$feedback_type[trail_id])
+  
+  trail_tibble
+}
+get_session_functional_data <- function(session_id){
+  n_trail <- length(session[[session_id]]$spks)
+  trail_list <- list()
+  for (trail_id in 1:n_trail){
+    trail_tibble <- get_trail_functional_data(session_id,trail_id)
+    trail_list[[trail_id]] <- trail_tibble
+  }
+  session_tibble <- as_tibble(do.call(rbind, trail_list))
+  session_tibble <- session_tibble %>% add_column("mouse_name" = session[[session_id]]$mouse_name) %>% add_column("date_exp" = session[[session_id]]$date_exp) %>% add_column("session_id" = session_id) 
+  session_tibble
+}  
+
+```
+
+```{r, echo = FALSE, eval=FALSE}
+session_list = list()
+for (session_id in 1: 18){
+  session_list[[session_id]] <- get_session_functional_data(session_id)
+}
+full_functional_tibble <- as_tibble(do.call(rbind, session_list))
+full_functional_tibble$session_id <- as.factor(full_functional_tibble$session_id )
+full_functional_tibble$contrast_diff <- abs(full_functional_tibble$contrast_left-full_functional_tibble$contrast_right)
+
+full_functional_tibble$success <- full_functional_tibble$feedback_type == 1
+full_functional_tibble$success <- as.numeric(full_functional_tibble$success)
+```
+
+```{r,echo=FALSE, eval=FALSE}
+library(tibble)
+library(dplyr)
+
+head(full_functional_tibble)
+```
+<center>
+    <img src="Tibble_1.png" alt="Sessions 1 Data" style="width:50%;">
+</center>
+
+If we wanted to, we can create another way to process this data. This is shown in the table above as for each trail, the average of neuron spikes over each time bin is taken. This is denoted as trail_bin_average.In the following table, each row contains information of a particular trail. The columns contains the average spike rate for each time bin. The numbers within each bin vary, but can be used in the future prediction model to make more accurate assumption. By monitoring and recording thousands of these results from these 4 mice, we are able to increase the accuracy of the model as well. 
+
+**EDA**
+
+The purpose of EDA is for the final task: to predict the results of random trails from session 1 and session 18. We want to be able to analyze the patterns that are present within the data, especially within the trials were they are most apparent. By doing, we can target a specific variable or region of the brain were we want to create a model based off of. 
+
+```{r, echo=FALSE, eval=FALSE}
+
+full_tibble %>% filter (trail_id==1) %>% group_by(session_id) %>% summarise(sum(region_count))
+
+```
+<center>
+    <img src="Neurons_1.png" alt="Sessions 1 Data" style="width:35%;">
+    <img src="Neurons_2.png" alt="Another Image" style="width:35%;">
+</center>
+
+The table above shows the number of neurons in each session ranging from 1-18. From this, we can see that the session with the least number of neurons was 7 and the one with the most was 4. 
+
+```{r, echo=FALSE, eval=FALSE}
+full_tibble %>% group_by(session_id) %>% summarise(unique_area = n_distinct(brain_area))
+```
+<center>
+    <img src="Unique.png" alt="Sessions 1 Data" style="width:35%;">
+    <img src="Unique_2.png" alt="Sessions 1 Data" style="width:35%;">
+</center>
+
+The table above is to determine discrepancies and unique areas of the brain where neurons were activated that were not present in others trials/sessions. If we wanted to, we could analyze and determine patterns that appear from this form of data and use that even as a tool to craete the model. 
+
+```{r, echo=FALSE, eval=FALSE}
+average_spike <-full_tibble %>% group_by( session_id, trail_id) %>% mutate(mean_spike = sum(region_sum_spike)/sum(region_count))
+average_spike %>% group_by(session_id) %>% summarise(mean_session_spike = mean(mean_spike))
+```
+<center>
+    <img src="Mean.png" alt="Sessions 1 Data" style="width:35%;">
+    <img src="Mean_2.png" alt="Sessions 1 Data" style="width:35%;">
+    
+</center>
+
+The table above shows the average spike rate that is recorded in each session. The session with the highest mean spike rate was number 13 and the one with the least was number 4.
+
+```{r,echo=FALSE, eval=FALSE}
+library(ggplot2)
+
+ggplot(full_tibble, aes(x =session_id , y = brain_area)) +
+  geom_point() +
+  labs(x = "session_id" , y ="brain_area") +
+  scale_x_continuous(breaks = unique(full_tibble$session_id)) +  
+  theme_minimal()
+```
+
+<center>
+    <img src="graph_mice.png" alt="Sessions 1 Data" style="width:70%;">
+</center>
+
+The graph above depicts the areas of the brain where neurons are recorded. It is most apparent, that the data is very well spread out which makes it hard to determine whether there is a correlation between the sets of presented dots, however, it's important to note that these 18 sessions were recorded on a total of 4 different mice. Therefore, it's natural that not every mice is going to produce the same set of data. Additionally, it appears that a majority of these neurons are activated during sessions 7-12 suggesting that during this time, the mice had the most amount of brain activity. 
+
+```{r,echo=FALSE, eval=FALSE}
+full_functional_tibble %>% group_by(session_id) %>% summarize(success_rate = mean(success, na.rm = TRUE))
+```
+<center>
+    <img src="Success_1.png" alt="Sessions 1 Data" style="width:35%;">
+    <img src="Success_2.png" alt="Sessions 1 Data" style="width:35%;">
+    
+</center>
+
+Overall, it can be confirmed that as the sessions progress, the mice get much better at being able to tell the difference in the levels of contrast. The success rate in session 1 is merely 60 percent, but it can be confirmed that with an average of 80% success rate at the end, that the mice have steadily improved in their ability to understand the differences in contrast. 
+
+```{r,echo=FALSE, eval=FALSE}
+full_functional_tibble %>% group_by(mouse_name) %>% summarize(success_rate = mean(success, na.rm = TRUE))
+```
+<center>
+    <img src="mouse_name.png" alt="Sessions 1 Data" style="width:35%;">
+    
+</center>
+
+The table above depicts the success rate for each mice. From this, it can be interpreted that the mouse with the most success is Lederberg and the least successful mouse is Cori. The mice tend to with within a 10% rate within each other though which is a good indicator as to how they have been improving. 
+
+```{r,echo=FALSE, eval=FALSE}
+full_functional_tibble %>% group_by(contrast_diff) %>% count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+```
+<center>
+    <img src="contrast_dist.png" alt="Sessions 1 Data" style="width:40%;">
+    
+</center>
+The image above shows a table of the different possible contrast levels and the neurons that were supposedly present in action during each level. As the contrast levels differ, so do the amount of neurons that are present as shown above. A contrast level of 0 for example where no contrast was shown was often tested on mice around 33 percent of the time. In comparison, a contrast level of 0.25 was given a test rate of around 14 percent.
+
+```{r,echo=FALSE, eval=FALSE}
+full_functional_tibble %>% group_by(contrast_diff) %>% summarize(success_rate = mean(success, na.rm = TRUE))
+```
+<center>
+    <img src="contrast_rate.png" alt="Sessions 1 Data" style="width:40%;">
+    
+</center>
+
+The table above shows the 5 different contrast levels: 0, 0.25, 0.50, 0.75, and 1. Along with it on the right hand side, it shows that success rates that are associated with each one. A contrast of 0 has the least amount of success rate. This is most likely because in this scenario, the correct decision is to make no action for 1.5 seconds in order to be considered a success. Theoretically, if a mice has done this hundreds of time, it's programmed to automatically turn the wheel. As the contrast level increases, so does the success rate creating a correlation that the higher the contrast, the higher the success rate. This is most likely because at a contrast level of 1, the stimuli is easier to see for the mice. 
+
+```{r,echo=FALSE, eval=FALSE}
+counts_df <- full_functional_tibble[c('mouse_name', 'contrast_diff')]
+counts_df$contrast_diff <- as.factor(counts_df$contrast_diff)
+counts <- table(counts_df)
+
+percentages <- prop.table(counts, margin = 1)
+percentages
+
+```
+<center>
+    <img src="mouse_contrastdiff.png" alt="Sessions 1 Data" style="width:45%;">
+    
+</center>
+
+The image above shows a table of the individual success rate each mouse has with each contrast level. Forssmann seems to have the most success when it comes to a contrast level of 0. When the contrast level is 0.25, Forssmann once again has the highest success rate. When the contrast level is 0.5, Hench has the highest success rate. When the level is 0.75, Lederberg has the highest success rate, and finally Hench has the highest success rate at the level of 1. 
+
+### **Visualizing Success Rate**
+
+
+```{r,echo=FALSE, eval=FALSE}
+full_functional_tibble$trail_group = cut(full_functional_tibble$trail_id, breaks = seq(0, max(full_functional_tibble$trail_id), by = 25),include.lowest = TRUE)
+levels(full_functional_tibble$trail_group) <- seq(0, max(full_functional_tibble$trail_id), by = 25)[2:18]
+```
+
+
+```{r,echo=FALSE, eval=FALSE}
+success_rate <- aggregate(success ~ session_id + trail_group, data = full_functional_tibble, FUN = function(x) mean(x) )
+ggplot(success_rate, aes(x = trail_group, y = success)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~session_id, ncol=3) +
+      theme_bw()
+
+```
+<center>
+    <img src="session_data.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+The 18 graphs shown above visualize the success rate over time for each individual session. It's clear that as time goes on, as a whole, the success rates are getting higher, but, we also need to see during each of these 18 sessions if the success rate for each mouse is also improving. 
+
+```{r,echo=FALSE, eval=FALSE}
+success_rate <- aggregate(success ~ mouse_name + trail_group, data = full_functional_tibble, FUN = function(x) mean(x) )
+ggplot(success_rate, aes(x = trail_group, y = success)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~mouse_name) +
+      theme_bw()
+```
+<center>
+    <img src="mouse_data.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+The image shown above shows the 4 mice and their individual success rate that they have had over time. It's apparent from looking at the data from this perspective that Lederberg seems to have the most consistent success rate. Forssmann as talked about earlier is better with recognizing the lower contrast levels, but failing when it comes to the higher ones. Hench seems to be very consistent as well staying at a steady pace. Based on the graph, it seems that Cori has had the least amount of trials in comparison with the other mice which might play a factor when it comes to success rate.  
+
+```{r,echo=FALSE, eval=FALSE}
+col_names <-names(full_functional_tibble)
+region_sum_subset <- col_names[grep("^region_sum", col_names)]
+region_mean_subset <- col_names[grep("^region_mean", col_names)]
+
+```
+
+```{r,echo=FALSE, eval=FALSE}
+# average_spike <- full_tibble %>% group_by( session_id,trail_id) %>% summarise(mean_spike = mean(region_mean_spike))
+average_spike <- full_tibble %>% group_by( session_id,trail_id) %>% summarise(mean_spike = sum(region_sum_spike)/sum(region_count))
+
+average_spike$mouse_name <- full_functional_tibble$mouse_name
+average_spike$contrast_diff <- full_functional_tibble$contrast_diff
+average_spike$success <- full_functional_tibble$success
+```
+
+```{r,echo=FALSE, eval=FALSE}
+library(ggplot2)
+ggplot(average_spike, aes(x = trail_id, y = mean_spike)) + 
+  geom_line()+
+  geom_smooth(method = "loess")+  # Fit a smooth spline
+
+  facet_wrap(~session_id)
+```
+<center>
+    <img src="trail_id.png" alt="Sessions 1 Data" style="width:70%;">
+    
+</center>
+The image above depicts the change of overall neuron spike rate for each session. The data seems to vary across each session though so it's hard to make a definitive correlation that can be used moving forward in the prediction. It might be a better option to look at the individual mean spike rates for each mouse instead of the overall spike rate in each session. 
+
+```{r,echo=FALSE, eval=FALSE}
+ggplot(average_spike, aes(x = trail_id, y = mean_spike)) + 
+  geom_line()+
+  geom_smooth(method = "loess")+  # Fit a smooth spline
+
+  facet_wrap(~mouse_name)
+```
+<center>
+    <img src="mouse_spike.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+In comparison with the spike rate data over the 18 sessions, this data is much more connected with how each mouse is performing. Cori seems to be declining in terms of spike rate, however, the value remains high. Forssmann has a lower spike rate, however, it's clear that the geometric line is also increasing. Hench is consistent and has a steady spike rate showing meaningful progress. Lederberg has an inconsistent spike rate, but also seems to have a line showing a significant improvement over the course of time. 
+
+## Dimension Reduction through PCA
+
+We perform PCA and visualize the 2D results. 
+
+```{r, echo = FALSE, eval=FALSE}
+features = full_functional_tibble[,1:40]
+scaled_features <- scale(features)
+pca_result <- prcomp(scaled_features)
+pc_df <- as.data.frame(pca_result$x)
+pc_df$session_id <- full_functional_tibble$session_id
+pc_df$mouse_name <- full_functional_tibble$mouse_name
+```
+
+
+```{r, echo = FALSE, eval=FALSE}
+ ggplot(pc_df, aes(x = PC1, y = PC2, color = session_id)) +
+  geom_point() +
+  labs(title = "PCA: PC1 vs PC2")
+```
+<center>
+    <img src="session_PC.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+In the image shown above, each dot refers to a session color ranging from 1-18. There seems to be a trend that as more sessions happen, the data gets more distributed to the right hand side of the graph. In fact, a lot of the data seems to be a large region between 0-10 within the graph proving that there is in fact a cluster. 
+
+ 
+```{r, echo = FALSE, eval=FALSE}
+ggplot(pc_df, aes(x = PC1, y = PC2, color = mouse_name)) +
+  geom_point() +
+  labs(title = "PCA: PC1 vs PC2")
+```
+<center>
+    <img src="mouse_PC.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+The printed graph above shows the PCA for each mouse. As expected and stated before, Lederberg seems to be the most consistent out of the 4 mice used in this report and seem to have data(if this was interpreted as a histogram) that is skewed to the left.It's hardest to interpret data for Cori, Hench, and Forssmann as their data is distributed unevenly at least visually within the graphs. Hench seems to have the most distribution in the graph both vertically and horizontally when comparing the 2 PCS. Cori seems to have more data that is scattered towards the bottom of the plot. Forssmann seems to be distributed to the right hand side of the graph similar to Lederberg. 
+
+In terms of the information that can be taken into consideration for the next part, it seems that a lot of the information, especially from the graphs can be incorporated into the data integration aspect of the report. The benefit of printing out all of these graphs and recording the spike rates and neurons within each mice is that we are now able to more accurately decide what factors that can be used in the prediction model to ensure that future test data can have a higher success rate in terms of feedback type.  
+
+### **Data Integration**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is the section of the report where we begin to choose specific variables/patterns that we have noticed during our exploratory analysis portion that may be useful towards our prediction model. 
+
+```{r, echo=FALSE, eval=FALSE}
+predictive_feature <- c("session_id","trail_id","contrast_right","contrast_left", "contrast_diff" ,binename)
+head(full_functional_tibble[predictive_feature])
+```
+```{r,echo=FALSE, eval=FALSE}
+predictive_dat <- full_functional_tibble[predictive_feature]
+#predictive_dat$success <- as.numeric(predictive_dat$success)
+predictive_dat$trail_id <- as.numeric(predictive_dat$trail_id)
+label <- as.numeric(full_functional_tibble$success)
+X <- model.matrix(~., predictive_dat)
+
+```
+<center>
+    <img src="integration_1.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For my prediction model, I decided to incorporate in the session_id, the trial_id, contrast_right, contrast_left, and contrast_diff. Along with this information, I thought it was important to also include the the average spike rate of each bin that way this type of information can be shared through different sessions in order for the prediction model to make more accurate decisions. As for the reasoning, it was clear that contrast_right and contrast_left were the main test for the mice and their ability to tell the difference, therefore it was clear that the values assigned for both left and right were going to be integrated into the prediction model. Session_id along with the trial_id helps keep track of were specifically we are within each set applied to the model as well. One of the most eye-opening realizations made in the exploratory analysis was that contrast_diff varies between the 5 contrast levels. Mostly, it was figured out that there was a correlation between contrast level and success rate. The higher the contrast_diff, the higher the success rate most likely meaning it was easier for the mice to make a decision when the differences in contrast level presented to them were much more clear. The average spike rate for each time bin helps for the model to improve itself and realize where the neurons from the brain take the most action and during what period of time.   
+
+### **Predictive Modeling**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;This is the main portion where the prediction model will be created. The purpose of creating this model is that by incorporating the data analyzed within the exploratory analysis and then incorporating it within the data integration, the model is able to learn and make more accurate decisions. The hope is that it will go from inaccurate to a slightly more accurate prediction model as we begin to feed it more test data that was once from the mice. In a way, this prediction model itself can be viewed as a brand new mouse that has been added in the experiment but had the ability to outperform and learn faster than the other mice because of its ability to take in past data and use it to create a better feedback. 
+
+```{r, echo=FALSE, eval=FALSE}
+# split
+library(caret)
+set.seed(123) # for reproducibility
+trainIndex <- createDataPartition(label, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+train_df <- predictive_dat[trainIndex, ]
+train_X <- X[trainIndex,]
+test_df <- predictive_dat[-trainIndex, ]
+test_X <- X[-trainIndex,]
+
+train_label <- label[trainIndex]
+test_label <- label[-trainIndex]
+```
+```{r, echo=FALSE, eval=FALSE}
+library(xgboost)
+xgb_model <- xgboost(data = train_X, label = train_label, objective = "binary:logistic", nrounds=10)
+
+```
+
+<center>
+    <img src="logs_data.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+For this prediction mode, the xgboost package will be used for the purpose of scalable implementation and gradient boosting. The Xgb model that is beign used within the pacakge for this chunk is running a model and in this case, it ran 10 training sessions. The training logs depict decimal numbers which as the logs do on, tend to decrease. From this, it can be inferred that the values decrease as the sessions tend to get longer. However, as more data gets impoted and as the model gets more accurate at providing the correct type of feedback, this could change. Additionally, for convenience purposes so that this data can be recreated, the seed has been set to (123).
+
+
+Prediction results (accuracy, confusion matrix, AUROC)
+```{r, echo=FALSE, eval=FALSE}
+predictions <- predict(xgb_model, newdata = test_X)
+predicted_labels <- as.numeric(ifelse(predictions > 0.5, 1, 0))
+accuracy <- mean(predicted_labels == test_label)
+accuracy
+
+```
+
+<center>
+    <img src="results_model.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+The percent above is the result of running through rthe model and then printing out the resulting accuracy. In this case, the value is 0.7312992. It can be inferred from this that we currently have a 73% rate of accuracy. In comparison with the actual mice, this model seems to do be doing a good job of correctly displaying and depicting the correct set of information that can be used. A lot of the mice for example tended to hover around 65 percent for their overall success rate. The only mice that could be considered an outlier, however, was Lederberg who had a success rate of around 76%. 
+
+
+
+```{r, echo=FALSE, eval=FALSE}
+conf_matrix <- confusionMatrix(as.factor(predicted_labels), as.factor(test_label))
+conf_matrix$table
+
+```
+<center>
+    <img src="prediction_ref.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+The image above shows the predicted and tested categorical variables within the model. The confusion matrix table shows the counts of true positive,true negative, false positive, and false negative predictions made by the model. Each cell in the table represents points taken into account that occurred in each category. 
+
+```{r, echo=FALSE, eval=FALSE}
+auroc <- roc(test_label, predictions)
+auroc
+```
+
+<center>
+    <img src="control_1.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+As shown in the image above, we can now compute auroc <- roc(test_label, predictions) from the pROC package in R  The AUROC object,contains information about the AUROC curve, such as the coordinates of the curve points and the area under the curve. In this case, the area under the curve is 0.7379. The close the AUROC model is to 1, the more perfect that it is. In this case, we can round it to around 0.74 to make it easier and conclude that we have nearly a 75% AUROC value which is very good for our prediction. 
+
+
+```{r, echo=FALSE, eval=FALSE}
+# split
+set.seed(123) # for reproducibility
+session_18_row <- which(full_functional_tibble$session_id==18)
+testIndex <- sample(session_18_row, 50, replace = FALSE)
+trainIndex <- 1:nrow(full_functional_tibble)
+trainIndex <- trainIndex[!(trainIndex %in% testIndex)]
+
+train_df <- predictive_dat[trainIndex, ]
+train_X <- X[trainIndex,]
+test_df <- predictive_dat[-trainIndex, ]
+test_X <- X[-trainIndex,]
+
+train_label <- label[trainIndex]
+test_label <- label[-trainIndex]
+```
+
+
+<center>
+    <img src="results_2.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+In the image above, we have tested the model's performance on 50 random trails from session 18. The purpose of doing this is so that we can train the model to become btter at predicting the feedback of the data. By feeding it more information and being able to train it, the error rate decreases adn the success rate increases. However, I beleive that the model will never reach 100% accuracy as one of the test case scenario can't have any recored outcome. This was the experiment for the mice were regardless of their decision, they were given a 50% chance to get get the stimuli right if they both had the same contrast level. For this section, we see that the area under the curve is 0.6875 suggesting that the data has gotten worse, however, the number will get higher as more information is processed. 
+
+Prediction results (accuracy, confusion matrix, AUROC)
+
+```{r, echo=FALSE, eval=FALSE}
+xgb_model <- xgboost(data = train_X, label = train_label, objective = "binary:logistic", nrounds=10)
+predictions <- predict(xgb_model, newdata = test_X)
+predicted_labels <- as.numeric(ifelse(predictions > 0.5, 1, 0))
+accuracy <- mean(predicted_labels == test_label)
+accuracy
+conf_matrix <- confusionMatrix(as.factor(predicted_labels), as.factor(test_label))
+conf_matrix$table
+auroc <- roc(test_label, predictions)
+auroc
+```
+
+<center>
+    <img src="results_3.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+
+3 things are shown in the image above. The current accuracy, the confusion matrix, and the AUROC. We can see that overall accuracy has decreased to a value of 66 percent. The data shows that there have been predictions made in 19 controls over the course of the session which is then divided by the current 31 cases. We see that this then gives us an area under the curve of 0.6689. 
+
+### **Prediction performance on the test sets**
+
+```{r,echo=FALSE, eval=TRUE}
+test1 <- readRDS("C:/Users/venka/OneDrive/Documents/STA 141A Project/test1.rds")
+head(test1)
+
+test2 <- readRDS("C:/Users/venka/OneDrive/Documents/STA 141A Project/test2.rds")
+head(test2)
+
+```
+<center>
+    <img src="test_data.png" alt="Sessions 1 Data" style="width:60%;">
+    
+</center>
+These are the basic printed results of the data through session 1 and 18. 
+
+### **Discussion** 
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Based on the prediction model created and performances so far that have been made, we currently have a success rate of around 66 percent. The best version of this project is one in which the mice have the highest success rate so we are able to accurately make a better model. The benefits of this are that the predictions that the model makes can be much more accurate, however, it's clear that in this case, we can only stay at this constant amount. One difficulty was that the success rate for various mice were not evenly distributed as some of them had a much higher success rate. Also, another additional point that was made earlier in the EDA was that there will never be a moment were 100% accuracy can be guarantee from the mice. As the sessions do go longer and more trials are completed, the mice do get progressively better, but for one of the experiments where the contrast are the same, the mice was given an option to choose any of the 2 presented stimuli. In this base scenario, the mice was given a a 50% chance to get the right answer removing the possibility for a perfect set of data. Based on this, one can assume that there could also be other flaws. Moreover, hundreds of models can be crated from these data sessions. It just depends on what variables are implemented and what pattern the observer wants to keep their focus on. Analyzing these trends and patterns help to create a more effective model and therefore a much better feedback. Overall, the model was somewhat accurate in determining the feedback type presented. 
+
+---
+
+
+
+# Reference {-}
+
+ChatGPT - used to fix certain unknown errors implement images in order to make the knitting neater
+
+A3D3 Seminar: Distributed coding of vision, action and cognition in the mouse brain | Nick Steinmetz - Seminar https://www.youtube.com/watch?v=tzjh_Gusu1g in which Steinmetz talking more in detail about the experiment. Was helpful in determining patterns used for the model.
+
+Steinmetz, N.A., Zatka-Haas, P., Carandini, M. et al. Distributed coding of choice, action and engagement across the mouse brain. Nature 576, 266–273 (2019). https://doi.org/10.1038/s41586-019-1787-x
+
+
